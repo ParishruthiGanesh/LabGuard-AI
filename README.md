@@ -270,7 +270,7 @@ equivalents for `gcloud run services replace`.
 > tested deployment.
 >
 > Everything else in this README has been run and verified: the headless demo
-> workflow, the API, the dashboard driven through a real browser, the 52 tests,
+> workflow, the API, the dashboard driven through a real browser, the 70 tests,
 > the linters, the type checks and the production build.
 
 ### Configuration
@@ -294,7 +294,7 @@ The settings that matter:
 ## Development
 
 ```bash
-make test        # 52 backend tests, ~16s
+make test        # 70 backend tests, ~22s
 make lint        # ruff + tsc + next lint
 make check       # both
 make build       # production dashboard build
@@ -303,7 +303,10 @@ make clean
 
 The tests cover the synthetic benchmark's weaknesses, the action registry and
 its approval rules, RunMedic's detection logic, the full claim-to-verdict
-workflow, and the HTTP API.
+workflow under each autonomy mode, the HTTP API, and the guard rails around
+the Gemini runtime — that an invented action is refused, that costs and
+approval requirements are never taken from the model, and that a disagreeing
+verdict status is overruled by the measured one.
 
 ```bash
 python scripts/run_demo.py --autonomy safe_repair --no-approve   # stop at the gate

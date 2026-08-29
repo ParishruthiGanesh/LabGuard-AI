@@ -44,7 +44,21 @@ async def drive(autonomy: AutonomyMode, auto_approve: bool, quiet: bool) -> dict
         if current.state == ClaimState.AWAITING_APPROVAL:
             plan = await services.orchestrator.pending_plan(claim.id)
             if plan is None:
-                break
+                # A repair is waiting on a decision rather than a whole round.
+                held = [j for j in await services.store.list_jobs(claim.id) if j.state == JobState.AWAITING_APPROVAL]
+                if not held:
+                    break
+                say(f"\nrepair approval requested for: {', '.join(j.action_type for j in held)}")
+                if not auto_approve:
+                    say("stopping: pass --approve to continue past the approval gate")
+                    break
+                for job in held:
+                    await services.orchestrator.queue_job(current, job)
+                current.state = ClaimState.EXECUTING
+                await services.store.save_claim(current)
+                say("approved\n")
+                await services.bus.drain(timeout=180)
+                continue
             say(f"\napproval requested: {plan.summary}")
             for item in plan.items:
                 flag = " [needs approval]" if item.requires_approval else ""
@@ -82,6 +96,7 @@ async def _summarise(services: Services, claim_id: str) -> dict:
         "state": claim.state.value if claim else "missing",
         "planning_rounds": (claim.planning_round + 1) if claim else 0,
         "budget_consumed": claim.budget.consumed_units if claim else 0,
+        "halt_reason": claim.halt_reason if claim else "",
         "jobs": [
             {
                 "action": j.action_type,
@@ -116,6 +131,9 @@ def main() -> int:
         print(json.dumps(result, indent=2))
         return 0
 
+    if result["halt_reason"]:
+        print(f"\nhalted in state '{result['state']}': {result['halt_reason']}")
+
     print("\n=== jobs ===")
     for job in result["jobs"]:
         target = f" [{job['config']}]" if job["config"] else ""
@@ -129,13 +147,17 @@ def main() -> int:
     print("\n=== reliability ===")
     for dimension, score in result["scores"].items():
         print(f"  {dimension:<26} {score:>3}")
-    print(f"\nverdict: {result['verdict']}")
-    print(f"{result['headline']}")
+    if result["verdict"]:
+        print(f"\nverdict: {result['verdict']}")
+        print(f"{result['headline']}")
+    else:
+        print(f"\nno verdict: the claim stopped in state '{result['state']}'.")
     print(
         f"\nrounds={result['planning_rounds']} budget={result['budget_consumed']} "
         f"evidence={result['evidence_count']} ledger={result['ledger_entries']}"
     )
-    return 0 if result["verdict"] else 1
+    # Halting on policy is a correct outcome, not a failure of the run.
+    return 0 if (result["verdict"] or result["halt_reason"]) else 1
 
 
 if __name__ == "__main__":

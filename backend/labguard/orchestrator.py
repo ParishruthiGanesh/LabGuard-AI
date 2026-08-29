@@ -407,7 +407,30 @@ class Orchestrator:
                 return
             job_ids = {i.job_id for i in plan.items if i.job_id}
             jobs = [j for j in await self.store.list_jobs(claim.id) if j.id in job_ids]
-            if any(not j.state.is_terminal for j in jobs):
+            outstanding = [j for j in jobs if not j.state.is_terminal]
+            if outstanding:
+                # A round whose only remaining work is waiting on a person is
+                # blocked, not executing. Say so, rather than leaving the claim
+                # reading as busy while nothing can progress.
+                held = [j for j in outstanding if j.state == JobState.AWAITING_APPROVAL]
+                if len(held) == len(outstanding):
+                    await self._set_state(
+                        claim,
+                        ClaimState.AWAITING_APPROVAL,
+                        AgentName.RUN_MEDIC,
+                        f"{len(held)} repair(s) need approval before this round can finish",
+                    )
+                    await self.log(
+                        claim,
+                        AgentName.RUN_MEDIC,
+                        "await_repair_approval",
+                        reason=(
+                            "A repair needs more autonomy than this claim is running at, so the run "
+                            "cannot continue without a decision."
+                        ),
+                        inputs={"jobs": [j.action_type for j in held]},
+                        decision="Paused the round and escalated to the researcher.",
+                    )
                 return
             plan.status = "executed"
             await self.store.save_plan(plan)

@@ -117,6 +117,41 @@ class TestApprovalGate:
         assert all(j.attempts == 0 for j in jobs), "observe-only must not execute anything"
 
 
+class TestSafeRepairPolicy:
+    """Under safe repair, a bounded parameter change needs a decision."""
+
+    async def test_a_repair_beyond_the_policy_pauses_the_round_and_says_so(self, services):
+        claim = await services.orchestrator.create_claim(demo_claim(AutonomyMode.SAFE_REPAIR))
+        for _ in range(20):
+            await services.orchestrator.advance(claim.id)
+            current = await services.store.get_claim(claim.id)
+            plan = await services.orchestrator.pending_plan(claim.id)
+            if current.state == ClaimState.AWAITING_APPROVAL and plan is not None:
+                await services.orchestrator.decide_plan(claim.id, plan.id, True, "test")
+            if current.state == ClaimState.EXECUTING:
+                await services.bus.drain(timeout=120)
+                continue
+            if current.state == ClaimState.AWAITING_APPROVAL and plan is None:
+                break
+            if current.state.is_terminal:
+                break
+        await services.bus.drain(timeout=120)
+
+        current = await services.store.get_claim(claim.id)
+        jobs = await services.store.list_jobs(claim.id)
+        held = [j for j in jobs if j.state == JobState.AWAITING_APPROVAL]
+
+        # The learning-rate repair needs managed autonomy, so it is held.
+        assert held, "the diverging run's repair should need a decision at this autonomy level"
+        assert any("variant" in str(j.params.get("config_name")) for j in held)
+        # And the claim must report that it is blocked, not that it is busy.
+        assert current.state == ClaimState.AWAITING_APPROVAL
+        assert "approval" in current.latest_action.lower()
+
+        event = next(e for j in held for e in j.health.events if e.requires_approval)
+        assert "requires approval" in event.action_taken
+
+
 class TestFullWorkflow:
     async def test_reaches_a_verdict_with_traceable_evidence(self, completed):
         services, claim = completed

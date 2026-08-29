@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import pytest_asyncio
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -21,7 +22,10 @@ def settings(tmp_path) -> Settings:
     )
 
 
-@pytest.fixture
+# `loop_scope="module"` matters: modules that pin their tests to a module-scoped
+# event loop would otherwise get a Services built on a different loop, leaving
+# the job bus consumer task on a loop that never runs.
+@pytest_asyncio.fixture(loop_scope="module")
 async def services(settings) -> Services:
     svc = Services(settings)
     await svc.start()

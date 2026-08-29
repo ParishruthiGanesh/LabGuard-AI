@@ -168,6 +168,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         if request.approved:
             await services.orchestrator.queue_job(claim, job)
+            if claim.state == ClaimState.AWAITING_APPROVAL:
+                claim.state = ClaimState.EXECUTING
+                claim.latest_action = f"Repair approved; re-running {job.action_type}."
+                await services.store.save_claim(claim)
         else:
             job.state = JobState.REJECTED
             await services.store.save_job(job)
