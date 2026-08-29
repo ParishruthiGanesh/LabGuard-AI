@@ -1,0 +1,41 @@
+# Declarative equivalent of the `gcloud run deploy labguard-worker` step, for
+# teams that prefer `gcloud run services replace`. Substitute PROJECT_ID,
+# REGION and IMAGE_TAG before applying.
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: labguard-worker
+  annotations:
+    run.googleapis.com/ingress: internal
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "10"
+    spec:
+      serviceAccountName: labguard-worker@PROJECT_ID.iam.gserviceaccount.com
+      timeoutSeconds: 900
+      containers:
+        - image: REGION-docker.pkg.dev/PROJECT_ID/labguard/backend:IMAGE_TAG
+          ports:
+            - containerPort: 8080
+          env:
+            - name: LABGUARD_MODE
+              value: cloud
+            - name: GOOGLE_CLOUD_PROJECT
+              value: PROJECT_ID
+            - name: GOOGLE_CLOUD_REGION
+              value: REGION
+            - name: GOOGLE_GENAI_USE_VERTEXAI
+              value: "true"
+            - name: GEMINI_MODEL
+              value: gemini-3.5-flash
+            - name: GCS_BUCKET
+              value: PROJECT_ID-labguard-artifacts
+            - name: ENABLE_CLOUD_LOGGING
+              value: "true"
+          resources:
+            limits:
+              cpu: "2"
+              memory: 1Gi

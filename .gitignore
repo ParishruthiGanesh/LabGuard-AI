@@ -20,6 +20,8 @@ out/
 .env
 .env.local
 
-# Local verification helpers
+# Local verification helpers (a root lockfile would confuse Next's workspace
+# root inference; the frontend lockfile is committed for reproducible builds)
 shots.mjs
-package-lock.json
+/package-lock.json
+/node_modules/
