@@ -75,6 +75,12 @@ function RunDetail({ job }: { job: Job }) {
   const summary = job.result.paired_summary as Record<string, PairedSummary> | undefined;
   const seeds = (job.result.seeds as number[] | undefined) ?? [];
   const last = job.curves[job.curves.length - 1];
+  // The health summary is only written once a job finishes, so while it runs
+  // read the resource figures straight off the recorded epochs.
+  const peakMemory = job.health.peak_memory_mb || Math.max(0, ...job.curves.map((c) => c.memory_mb));
+  const meanUtil =
+    job.health.mean_gpu_util_pct ||
+    (job.curves.length ? job.curves.reduce((n, c) => n + c.gpu_util_pct, 0) / job.curves.length : 0);
 
   return (
     <div className="space-y-6">
@@ -91,16 +97,8 @@ function RunDetail({ job }: { job: Job }) {
         <div className="grid gap-3 sm:grid-cols-4">
           <Metric label="Epochs recorded" value={job.curves.length} />
           <Metric label="Attempts" value={`${job.attempts} / ${job.max_retries + 1}`} />
-          <Metric
-            label="Peak memory"
-            value={job.health.peak_memory_mb ? `${job.health.peak_memory_mb.toFixed(0)} MB` : "-"}
-            tag
-          />
-          <Metric
-            label="Mean utilisation"
-            value={job.health.mean_gpu_util_pct ? `${job.health.mean_gpu_util_pct.toFixed(0)}%` : "-"}
-            tag
-          />
+          <Metric label="Peak memory" value={peakMemory ? `${peakMemory.toFixed(0)} MB` : "-"} tag />
+          <Metric label="Mean utilisation" value={meanUtil ? `${meanUtil.toFixed(0)}%` : "-"} tag />
         </div>
         {currentRun && (job.state === "running" || job.state === "recovering") && (
           <p className="mt-3 flex items-center gap-2 text-xs text-ink-600">

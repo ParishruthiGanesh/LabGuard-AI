@@ -104,7 +104,13 @@ export function LineChart({
               strokeWidth={1}
               strokeDasharray="3 3"
             />
-            <text x={x(marker.x) + 4} y={pad.top + 10} className="text-[9px]" fill={marker.color}>
+            <text
+              x={x(marker.x) + (x(marker.x) > pad.left + plotW * 0.6 ? -4 : 4)}
+              y={pad.top + 10}
+              textAnchor={x(marker.x) > pad.left + plotW * 0.6 ? "end" : "start"}
+              className="text-[9px]"
+              fill={marker.color}
+            >
               {marker.label}
             </text>
           </g>
