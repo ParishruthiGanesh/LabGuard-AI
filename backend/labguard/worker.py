@@ -170,12 +170,12 @@ class ExperimentWorker:
         for finding in findings:
             if any(e.anomaly == finding.anomaly for e in job.health.events):
                 continue  # already reported for this run
-            event = await self._record_health_event(claim, job, finding, live=True, stopping=may_stop)
+            event = await self._record_health_event(claim, job, finding, phase="live", stopping=may_stop)
             job.health.events.append(event)
         return may_stop
 
     async def _record_health_event(
-        self, claim: Claim, job: Job, finding: Finding, *, live: bool, stopping: bool = False
+        self, claim: Claim, job: Job, finding: Finding, *, phase: str, stopping: bool = False
     ) -> HealthEvent:
         """Log a detection and the repair that was actually applied."""
         if stopping:
@@ -184,7 +184,7 @@ class ExperimentWorker:
                 False,
             )
         else:
-            action_taken, needs_approval = self._recovery_decision(claim, job, finding, live=live)
+            action_taken, needs_approval = self._recovery_decision(claim, job, finding, phase=phase)
         event = HealthEvent(
             job_id=job.id,
             anomaly=finding.anomaly,
@@ -207,12 +207,24 @@ class ExperimentWorker:
         )
         return event
 
-    def _recovery_decision(self, claim: Claim, job: Job, finding: Finding, *, live: bool) -> tuple[str, bool]:
-        """Decide what, if anything, RunMedic may do about a finding."""
+    def _recovery_decision(self, claim: Claim, job: Job, finding: Finding, *, phase: str) -> tuple[str, bool]:
+        """Decide what, if anything, RunMedic may do about a finding.
+
+        `phase` is one of "live" (the run is still going and can be stopped),
+        "failure" (the run raised and can be repaired and re-queued), or
+        "post_run" (found in the finished curve, where there is nothing left
+        to intervene in).
+        """
         recovery = RECOVERY_FOR_ANOMALY.get(finding.anomaly.value)
         if recovery is None:
             return "Recorded for the evidence ledger; no repair applies.", False
-        if live and job.category == ActionCategory.DIAGNOSTIC:
+        if phase == "post_run":
+            return (
+                "Detected in the finished curve, after the run had ended. No repair was applied; the "
+                "metrics reported for this run come from its best validated checkpoint, not its last epoch.",
+                False,
+            )
+        if phase == "live" and job.category == ActionCategory.DIAGNOSTIC:
             # A diagnostic replay exists precisely to characterise the reported
             # run, so stopping it early would destroy the measurement. The
             # repair is recorded and applied to the runs that follow instead.
@@ -231,7 +243,7 @@ class ExperimentWorker:
         )
         if needs_approval:
             return f"'{recovery}' requires approval: {reason}", True
-        if live:
+        if phase == "live":
             # Detected, but the stop condition has not been met yet: the
             # validation metric is still improving, so the run continues.
             return (
@@ -279,7 +291,7 @@ class ExperimentWorker:
             return
 
         recovery = RECOVERY_FOR_ANOMALY.get(finding.anomaly.value)
-        action_taken, needs_approval = self._recovery_decision(claim, job, finding, live=False)
+        action_taken, needs_approval = self._recovery_decision(claim, job, finding, phase="failure")
         event = HealthEvent(
             job_id=job.id,
             anomaly=finding.anomaly,
@@ -367,7 +379,7 @@ class ExperimentWorker:
         for finding in findings:
             if any(e.anomaly == finding.anomaly for e in job.health.events):
                 continue
-            job.health.events.append(await self._record_health_event(claim, job, finding, live=False))
+            job.health.events.append(await self._record_health_event(claim, job, finding, phase="post_run"))
         status, summary = summarise(findings)
         repairs = len([r for r in job.recovery_actions if r.startswith("recovery:")]) + sum(
             1 for e in job.health.events if e.repaired

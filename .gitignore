@@ -19,3 +19,7 @@ out/
 # Environment
 .env
 .env.local
+
+# Local verification helpers
+shots.mjs
+package-lock.json

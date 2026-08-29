@@ -15,6 +15,18 @@ from typing import Any
 from ..models.domain import EpochRecord, Job
 from ..models.enums import AnomalyKind, HealthStatus
 
+
+def _fmt(value: float) -> str:
+    """Format a loss for a human. A diverging run produces enormous numbers,
+    so fall back to exponential notation rather than printing 200 digits."""
+    if value != value:
+        return "NaN"
+    magnitude = abs(value)
+    if magnitude >= 1e4 or (0 < magnitude < 1e-4):
+        return f"{value:.3e}"
+    return f"{value:.4f}"
+
+
 #: Consecutive epochs of validation degradation before overfitting is called.
 OVERFIT_PATIENCE = 6
 #: Relative rise in validation loss from its best that counts as meaningful.
@@ -70,7 +82,7 @@ def analyse_curve(curves: Sequence[EpochRecord]) -> list[Finding]:
             Finding(
                 AnomalyKind.EXPLODING_LOSS,
                 HealthStatus.CRITICAL,
-                f"validation loss grew from {val_losses[0]:.4f} to {last_val:.4f}",
+                f"validation loss grew from {_fmt(val_losses[0])} to {_fmt(last_val)}",
                 epoch=curves[-1].epoch,
                 evidence={"first": val_losses[0], "last": last_val},
             )
@@ -89,7 +101,7 @@ def analyse_curve(curves: Sequence[EpochRecord]) -> list[Finding]:
                 (
                     f"validation loss has risen {rise * 100:.1f}% above its best "
                     f"(epoch {curves[best_idx].epoch}) over {degrading} epochs while "
-                    f"training loss kept falling ({train_losses[best_idx]:.4f} -> {train_losses[-1]:.4f})"
+                    f"training loss kept falling ({_fmt(train_losses[best_idx])} -> {_fmt(train_losses[-1])})"
                 ),
                 epoch=curves[-1].epoch,
                 evidence={

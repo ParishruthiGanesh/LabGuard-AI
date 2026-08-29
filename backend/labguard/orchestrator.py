@@ -206,8 +206,6 @@ class Orchestrator:
                 results={"items": []},
                 decision="No remaining experiment would reduce uncertainty within budget; going to verdict.",
             )
-            claim.state = ClaimState.VERDICT
-            await self.store.save_claim(claim)
             await self._finalise(claim)
             return
 
@@ -247,8 +245,6 @@ class Orchestrator:
     async def _dispatch_current_plan(self, claim: Claim) -> None:
         plan = await self._current_plan(claim)
         if plan is None:
-            claim.state = ClaimState.VERDICT
-            await self.store.save_claim(claim)
             await self._finalise(claim)
             return
 
@@ -475,12 +471,13 @@ class Orchestrator:
             claim.halt_reason = (
                 f"Reached the {self.settings.max_planning_rounds}-round planning limit with questions still open."
             )
-        claim.state = ClaimState.VERDICT
-        await self.store.save_claim(claim)
         await self._finalise(claim)
 
     async def _finalise(self, claim: Claim) -> Verdict:
-        await self._set_state(claim, ClaimState.VERDICT, AgentName.VERDICT_AGENT, "Writing the final verdict")
+        # Stay in `auditing` until the verdict is written and stored: clients
+        # stop polling once a claim reports a terminal state, so publishing
+        # `verdict` early would freeze them on a snapshot with no verdict in it.
+        await self._set_state(claim, ClaimState.AUDITING, AgentName.VERDICT_AGENT, "Writing the final verdict")
         subclaims = await self.store.list_subclaims(claim.id)
         loopholes = await self.store.list_loopholes(claim.id)
         jobs = await self.store.list_jobs(claim.id)
