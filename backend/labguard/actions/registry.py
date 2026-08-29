@@ -127,6 +127,11 @@ class ActionSpec:
     min_autonomy: AutonomyMode
     #: True when the action yields evidence for or against a subclaim.
     produces_evidence: bool = True
+    #: Which component actually invokes this action. "planner" actions are
+    #: scheduled into a round; "runmedic" actions are applied to a parent job
+    #: as a repair; "orchestrator" actions run as part of finalising a claim.
+    #: Nothing in the registry is decorative — every action has an invoker.
+    invoked_by: str = "planner"
     #: Loophole kinds this action is capable of settling.
     addresses: tuple[str, ...] = ()
 
@@ -246,6 +251,7 @@ REGISTRY: dict[str, ActionSpec] = {
         ),
         ActionSpec(
             name="apply_early_stopping",
+            invoked_by="runmedic",
             category=ActionCategory.RECOVERY,
             summary="Stop a diverging run and keep the last healthy checkpoint.",
             params_model=EarlyStoppingParams,
@@ -256,6 +262,7 @@ REGISTRY: dict[str, ActionSpec] = {
         ),
         ActionSpec(
             name="retry_transient_failure",
+            invoked_by="runmedic",
             category=ActionCategory.RECOVERY,
             summary="Retry a run that failed for an infrastructure reason, not a scientific one.",
             params_model=RetryTransientParams,
@@ -266,6 +273,7 @@ REGISTRY: dict[str, ActionSpec] = {
         ),
         ActionSpec(
             name="reduce_batch_size",
+            invoked_by="runmedic",
             category=ActionCategory.RECOVERY,
             summary="Halve the batch size after an out-of-memory failure and resume.",
             params_model=ReduceBatchSizeParams,
@@ -276,6 +284,7 @@ REGISTRY: dict[str, ActionSpec] = {
         ),
         ActionSpec(
             name="adjust_learning_rate_within_bounds",
+            invoked_by="runmedic",
             category=ActionCategory.RECOVERY,
             summary="Scale the learning rate down inside hard bounds after numerical divergence.",
             params_model=AdjustLearningRateParams,
@@ -287,7 +296,10 @@ REGISTRY: dict[str, ActionSpec] = {
         ActionSpec(
             name="resume_from_checkpoint",
             category=ActionCategory.RECOVERY,
-            summary="Resume an interrupted run from its last verified checkpoint.",
+            summary=(
+                "Load a saved checkpoint and re-derive its reported metric. Used both to verify a "
+                "reported checkpoint reproduces its number, and to recover an interrupted run."
+            ),
             params_model=ResumeCheckpointParams,
             base_cost_units=0.2,
             max_retries=2,
@@ -296,6 +308,7 @@ REGISTRY: dict[str, ActionSpec] = {
         ),
         ActionSpec(
             name="generate_reliability_report",
+            invoked_by="orchestrator",
             category=ActionCategory.REPORT,
             summary="Render the evidence ledger and reliability scores into a downloadable report.",
             params_model=ReportParams,

@@ -24,6 +24,12 @@ const AUTONOMY_COPY: Record<AutonomyMode, { label: string; detail: string }> = {
   },
 };
 
+const INVOKERS = [
+  { key: "planner", label: "Scheduled by the planner", hint: "into a verification round" },
+  { key: "runmedic", label: "Applied by RunMedic", hint: "as a repair to a running job" },
+  { key: "orchestrator", label: "Run by the orchestrator", hint: "when the claim is finalised" },
+] as const;
+
 export default function LauncherPage() {
   const router = useRouter();
   const [config, setConfig] = useState<AppConfig | null>(null);
@@ -185,19 +191,36 @@ export default function LauncherPage() {
             </Card>
 
             {config && (
-              <Card title="Safe action registry" subtitle={`${config.actions.length} typed actions. The planner may name one; it can never issue a command.`}>
-                <ul className="flex flex-wrap gap-1.5">
-                  {config.actions.map((action) => (
-                    <li key={action.name}>
-                      <span
-                        className="inline-block rounded bg-ink-50 px-2 py-1 font-mono text-[10px] text-ink-600"
-                        title={`${action.summary} (${action.base_cost_units} units, needs ${action.min_autonomy})`}
-                      >
-                        {action.name}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+              <Card
+                title="Safe action registry"
+                subtitle={`${config.actions.length} typed actions with validated parameters. An agent may name one; it can never issue a command.`}
+              >
+                <div className="space-y-3">
+                  {INVOKERS.map(({ key, label, hint }) => {
+                    const actions = config.actions.filter((a) => a.invoked_by === key);
+                    if (actions.length === 0) return null;
+                    return (
+                      <div key={key}>
+                        <p className="text-[11px] font-medium text-ink-600">
+                          {label}
+                          <span className="ml-1.5 font-normal text-ink-400">{hint}</span>
+                        </p>
+                        <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                          {actions.map((action) => (
+                            <li key={action.name}>
+                              <span
+                                className="inline-block rounded bg-ink-50 px-2 py-1 font-mono text-[10px] text-ink-600"
+                                title={`${action.summary} (${action.base_cost_units} units, needs ${action.min_autonomy} autonomy)`}
+                              >
+                                {action.name}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  })}
+                </div>
               </Card>
             )}
           </div>

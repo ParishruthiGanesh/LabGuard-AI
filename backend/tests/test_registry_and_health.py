@@ -119,3 +119,39 @@ class TestRunMedic:
         job.recovery_actions = ["failure:nan_loss:diverged at epoch 7"]
         finding = classify_failure(job, "resource_exhausted:out of memory")
         assert finding.anomaly == AnomalyKind.RESOURCE_EXHAUSTED
+
+
+class TestRegistryCoverage:
+    """Nothing in the registry is decorative: every action has a real invoker."""
+
+    def test_every_planner_action_has_an_executor(self):
+        from labguard.actions.executors import EXECUTORS
+        from labguard.actions.registry import REGISTRY
+
+        missing = [
+            spec.name for spec in REGISTRY.values() if spec.invoked_by == "planner" and spec.name not in EXECUTORS
+        ]
+        assert not missing, f"planner-scheduled actions with no executor: {missing}"
+
+    def test_every_recovery_action_is_reachable_from_an_anomaly(self):
+        from labguard.actions.registry import RECOVERY_FOR_ANOMALY, REGISTRY
+
+        reachable = set(RECOVERY_FOR_ANOMALY.values())
+        unreachable = [
+            spec.name for spec in REGISTRY.values() if spec.invoked_by == "runmedic" and spec.name not in reachable
+        ]
+        assert not unreachable, f"repairs no anomaly can trigger: {unreachable}"
+
+    def test_every_action_declares_who_invokes_it(self):
+        from labguard.actions.registry import REGISTRY
+
+        for spec in REGISTRY.values():
+            assert spec.invoked_by in {"planner", "runmedic", "orchestrator"}
+
+    def test_every_anomaly_with_a_repair_maps_to_a_real_action(self):
+        from labguard.actions.registry import RECOVERY_FOR_ANOMALY, REGISTRY
+        from labguard.models.enums import AnomalyKind
+
+        for anomaly, action in RECOVERY_FOR_ANOMALY.items():
+            assert AnomalyKind(anomaly)
+            assert action in REGISTRY

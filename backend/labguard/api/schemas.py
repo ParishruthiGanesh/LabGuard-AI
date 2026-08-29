@@ -78,6 +78,7 @@ class ActionSpecView(BaseModel):
     base_cost_units: float
     max_retries: int
     min_autonomy: str
+    invoked_by: str
     addresses: list[str]
     parameters: dict[str, Any]
 

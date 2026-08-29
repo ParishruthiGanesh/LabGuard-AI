@@ -319,6 +319,7 @@ export interface ActionSpecView {
   base_cost_units: number;
   max_retries: number;
   min_autonomy: string;
+  invoked_by: "planner" | "runmedic" | "orchestrator";
   addresses: string[];
   parameters: Record<string, unknown>;
 }

@@ -98,6 +98,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     base_cost_units=spec.base_cost_units,
                     max_retries=spec.max_retries,
                     min_autonomy=spec.min_autonomy.value,
+                    invoked_by=spec.invoked_by,
                     addresses=list(spec.addresses),
                     parameters=spec.params_model.model_json_schema(),
                 )
