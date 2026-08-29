@@ -48,7 +48,6 @@ class Settings(BaseSettings):
     firestore_root: str = Field(default="labguard_claims", alias="FIRESTORE_ROOT")
     pubsub_jobs_topic: str = Field(default="labguard-jobs", alias="PUBSUB_JOBS_TOPIC")
     pubsub_events_topic: str = Field(default="labguard-events", alias="PUBSUB_EVENTS_TOPIC")
-    worker_push_url: str = Field(default="", alias="WORKER_PUSH_URL")
     gcs_bucket: str = Field(default="", alias="GCS_BUCKET")
     artifact_dir: str = Field(default="./artifacts", alias="ARTIFACT_DIR")
     enable_cloud_logging: bool = Field(default=False, alias="ENABLE_CLOUD_LOGGING")
@@ -56,7 +55,10 @@ class Settings(BaseSettings):
     # -- behaviour --------------------------------------------------------
     #: Seconds of simulated queue latency so demo runs show real transitions.
     simulated_queue_latency: float = Field(default=0.6, alias="SIMULATED_QUEUE_LATENCY")
-    simulated_epoch_delay: float = Field(default=0.045, alias="SIMULATED_EPOCH_DELAY")
+    #: Optional pacing between epochs. Training is fast enough that a run
+    #: finishes before the dashboard polls twice; setting this to ~0.03 makes
+    #: the curves visibly stream during a live demo. Zero adds no delay.
+    simulated_epoch_delay: float = Field(default=0.0, alias="SIMULATED_EPOCH_DELAY")
     max_planning_rounds: int = Field(default=4, alias="MAX_PLANNING_ROUNDS")
     cors_origins: str = Field(default="*", alias="CORS_ORIGINS")
     #: Shared secret required by the worker push endpoint in cloud mode.

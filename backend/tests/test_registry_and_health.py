@@ -155,3 +155,26 @@ class TestRegistryCoverage:
         for anomaly, action in RECOVERY_FOR_ANOMALY.items():
             assert AnomalyKind(anomaly)
             assert action in REGISTRY
+
+
+class TestSettingsAreWired:
+    """A setting the code never reads is a promise the product does not keep."""
+
+    def test_every_declared_setting_is_read_somewhere(self):
+        import pathlib
+
+        from labguard.config import Settings
+
+        chunks: list[str] = []
+        for path in pathlib.Path(__file__).resolve().parents[1].joinpath("labguard").rglob("*.py"):
+            text = path.read_text()
+            if path.name == "config.py":
+                # Drop the declarations themselves, so a field only counts as
+                # read if something (including a computed property here) uses
+                # it. `deployment_mode`, for instance, is read by `is_cloud`.
+                text = "\n".join(line for line in text.splitlines() if "alias=" not in line)
+            chunks.append(text)
+        source = "\n".join(chunks)
+
+        unread = [name for name in Settings.model_fields if f".{name}" not in source]
+        assert not unread, f"settings declared but never read: {unread}"

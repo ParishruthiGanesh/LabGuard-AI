@@ -144,6 +144,11 @@ the prose changes.
    than the remaining budget requires approval.
 6. **The ledger is append-only** and every row records who acted, why, on what
    input, with what result, and what was decided.
+7. **A repair is staged before it is proposed.** When a repair needs more
+   autonomy than the claim is running at, RunMedic computes the bounded change
+   first and holds the job, so the approval screen names the concrete change
+   and approving it actually applies that change. Declining drops it and
+   leaves the run failed and unrepaired.
 
 ## Repository layout
 

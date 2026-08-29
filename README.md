@@ -270,7 +270,7 @@ equivalents for `gcloud run services replace`.
 > tested deployment.
 >
 > Everything else in this README has been run and verified: the headless demo
-> workflow, the API, the dashboard driven through a real browser, the 70 tests,
+> workflow, the API, the dashboard driven through a real browser, the 74 tests,
 > the linters, the type checks and the production build.
 
 ### Configuration
@@ -287,6 +287,8 @@ The settings that matter:
 | `GEMINI_MODEL` | `gemini-3.5-flash` | Falls through `GEMINI_MODEL_FALLBACKS` if unavailable |
 | `WORKER_SHARED_SECRET` | — | Required bearer token on the worker's push endpoint |
 | `SIMULATED_QUEUE_LATENCY` | `0.6` | Visible queue delay in demo mode |
+| `SIMULATED_EPOCH_DELAY` | `0.0` | Set to ~`0.03` to make training curves visibly stream during a live demo |
+| `ENABLE_CLOUD_LOGGING` | `false` | Attach the Cloud Logging handler; otherwise structured JSON goes to stdout |
 | `MAX_PLANNING_ROUNDS` | `4` | Bounds the recursive verification loop |
 
 ---
@@ -294,7 +296,7 @@ The settings that matter:
 ## Development
 
 ```bash
-make test        # 70 backend tests, ~22s
+make test        # 74 backend tests, ~35s
 make lint        # ruff + tsc + next lint
 make check       # both
 make build       # production dashboard build

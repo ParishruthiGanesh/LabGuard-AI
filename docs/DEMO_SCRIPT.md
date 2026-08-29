@@ -6,6 +6,11 @@ beforehand if you want a pre-warmed claim to fall back on.
 **Setup:** backend on `:8080`, dashboard on `:3000`, browser at
 `http://localhost:3000`, one tab, zoom 110%.
 
+Start the backend with `SIMULATED_EPOCH_DELAY=0.03` for this walkthrough.
+Training is fast enough that a run finishes before the dashboard polls twice;
+the pacing lets the audience watch the curves build. It adds roughly a minute
+to the whole run and changes no result.
+
 ---
 
 ## 0:00 — 0:30 · The problem

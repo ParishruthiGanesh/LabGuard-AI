@@ -20,6 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from ..actions.registry import REGISTRY
 from ..config import Settings, get_settings
 from ..experiments import scenario
+from ..infra.telemetry import configure_logging
 from ..models.domain import BudgetPolicy, Claim
 from ..models.enums import ClaimState, JobState
 from ..scoring.reliability import compute_reliability
@@ -51,8 +52,9 @@ def get_services() -> Services:
 async def lifespan(app: FastAPI):
     global _services
     _services = Services()
+    sink = configure_logging(_services.settings)
     await _services.start()
-    log.info("LabGuard started: %s", _services.infrastructure)
+    log.info("LabGuard started on %s: %s", sink, _services.infrastructure)
     try:
         yield
     finally:

@@ -8,6 +8,7 @@ demo mode the identical handler is driven by the in-process bus.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -51,6 +52,7 @@ class ExperimentWorker:
         self.store = store
         self.artifacts = artifacts
         self.orchestrator = orchestrator
+        self.epoch_delay = max(0.0, float(orchestrator.settings.simulated_epoch_delay))
 
     # -- bus entry point -------------------------------------------------
 
@@ -131,6 +133,9 @@ class ExperimentWorker:
             if record.epoch % LIVE_CHECK_EVERY == 0 and await self._live_check(claim, job):
                 stop_requested["value"] = True
             await self.store.save_job(job)
+            if self.epoch_delay:
+                # Optional pacing so a live audience can watch the curve build.
+                await asyncio.sleep(self.epoch_delay)
 
         async def write_artifact(path: str, payload: Any) -> str:
             return await self.artifacts.write_json(f"{claim.id}/{job.id}/{path}", payload)

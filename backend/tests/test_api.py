@@ -155,3 +155,22 @@ def test_pubsub_push_rejects_a_bad_secret(client, monkeypatch):
         "/internal/pubsub/push", json={"message": {"data": ""}}, headers={"Authorization": "Bearer wrong"}
     )
     assert response.status_code == 401
+
+
+def test_logging_falls_back_to_structured_stdout_without_a_project(tmp_path, monkeypatch, capsys):
+    """`ENABLE_CLOUD_LOGGING` must do something real, or not be offered."""
+    import json
+    import logging
+
+    from labguard.config import Settings
+    from labguard.infra.telemetry import configure_logging
+
+    sink = configure_logging(Settings(ENABLE_CLOUD_LOGGING=True, GOOGLE_CLOUD_PROJECT=""))
+    assert sink == "structured-stdout"
+
+    logging.getLogger("labguard.test").warning("hello %s", "world")
+    line = capsys.readouterr().out.strip().splitlines()[-1]
+    payload = json.loads(line)
+    assert payload["severity"] == "WARNING"
+    assert payload["message"] == "hello world"
+    assert payload["logger"] == "labguard.test"
