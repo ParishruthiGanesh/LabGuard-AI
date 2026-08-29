@@ -325,6 +325,40 @@ class Orchestrator:
         )
         await self.bus.publish_job({"claim_id": claim.id, "job_id": job.id, "action_type": job.action_type})
 
+    async def approve_repair(self, claim: Claim, job: Job) -> None:
+        """Accept a repair RunMedic staged but was not allowed to apply."""
+        pending = job.params.pop("_pending_recovery", None)
+        if pending:
+            job.recovery_actions.append(f"recovery:{pending['action']}")
+            await self.store.save_job(job)
+            await self.log(
+                claim,
+                AgentName.RUN_MEDIC,
+                f"recover:{pending['action']}",
+                reason="The researcher approved a repair outside the claim's autonomy policy.",
+                inputs=pending.get("detail", {}),
+                decision=f"Applied '{pending['action']}' and re-queued the run.",
+                job_id=job.id,
+            )
+        await self.queue_job(claim, job)
+
+    async def decline_repair(self, claim: Claim, job: Job) -> None:
+        """Decline a staged repair: the run stays failed, unrepaired."""
+        pending = job.params.pop("_pending_recovery", None)
+        # Drop the staged parameter changes so nothing carries them forward.
+        job.params.pop("_recovery_overrides", None)
+        job.state = JobState.FAILED
+        job.error = job.error or "repair declined by the researcher"
+        await self.store.save_job(job)
+        await self.log(
+            claim,
+            AgentName.RUN_MANAGER,
+            "decline_repair",
+            reason=f"The researcher declined '{(pending or {}).get('action', 'the proposed repair')}'.",
+            decision="The run stays failed and its parameters are unchanged.",
+            job_id=job.id,
+        )
+
     # -- approvals -------------------------------------------------------
 
     async def decide_plan(self, claim_id: str, plan_id: str, approved: bool, decided_by: str) -> Claim | None:

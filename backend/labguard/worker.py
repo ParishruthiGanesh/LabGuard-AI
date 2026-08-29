@@ -315,10 +315,31 @@ class ExperimentWorker:
             job_id=job.id,
         )
 
-        if recovery is None or needs_approval or job.attempts > MAX_TOTAL_ATTEMPTS:
-            job.state = JobState.AWAITING_APPROVAL if needs_approval else JobState.FAILED
+        if recovery is None or job.attempts > MAX_TOTAL_ATTEMPTS:
+            job.state = JobState.FAILED
             job.finished_at = utcnow()
             await self.store.save_job(job)
+            return
+
+        if needs_approval:
+            # Stage the repair now so the researcher is approving a concrete
+            # change, and so approving it actually re-runs with that change
+            # rather than repeating the identical failure.
+            staged = self._apply_recovery(claim, job, recovery)
+            job.params["_pending_recovery"] = {"action": recovery, "detail": staged}
+            event.action_taken = f"{action_taken} Repair staged, awaiting a decision: {staged}"
+            job.state = JobState.AWAITING_APPROVAL
+            await self.store.save_job(job)
+            await self.orchestrator.log(
+                claim,
+                AgentName.RUN_MEDIC,
+                f"await_approval:{recovery}",
+                reason=finding.detail,
+                inputs=staged,
+                results={"job_state": job.state.value},
+                decision=f"'{recovery}' is outside this claim's autonomy policy; staged and escalated.",
+                job_id=job.id,
+            )
             return
 
         applied = self._apply_recovery(claim, job, recovery)

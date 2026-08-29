@@ -167,14 +167,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status_code=409, detail=f"job is {job.state.value}, not awaiting approval")
 
         if request.approved:
-            await services.orchestrator.queue_job(claim, job)
+            await services.orchestrator.approve_repair(claim, job)
             if claim.state == ClaimState.AWAITING_APPROVAL:
                 claim.state = ClaimState.EXECUTING
                 claim.latest_action = f"Repair approved; re-running {job.action_type}."
                 await services.store.save_claim(claim)
         else:
-            job.state = JobState.REJECTED
-            await services.store.save_job(job)
+            await services.orchestrator.decline_repair(claim, job)
             background.add_task(services.orchestrator.on_job_finished, claim_id)
         return {"job_id": job.id, "state": job.state.value}
 

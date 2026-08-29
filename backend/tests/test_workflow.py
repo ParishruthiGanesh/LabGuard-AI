@@ -117,6 +117,28 @@ class TestApprovalGate:
         assert all(j.attempts == 0 for j in jobs), "observe-only must not execute anything"
 
 
+async def _run_to_held_repair(services):
+    """Drive a safe-repair claim to the point where a repair awaits a decision."""
+    claim = await services.orchestrator.create_claim(demo_claim(AutonomyMode.SAFE_REPAIR))
+    for _ in range(20):
+        await services.orchestrator.advance(claim.id)
+        current = await services.store.get_claim(claim.id)
+        plan = await services.orchestrator.pending_plan(claim.id)
+        if current.state == ClaimState.AWAITING_APPROVAL and plan is not None:
+            await services.orchestrator.decide_plan(claim.id, plan.id, True, "test")
+            continue
+        if current.state == ClaimState.EXECUTING:
+            await services.bus.drain(timeout=120)
+            continue
+        break
+    await services.bus.drain(timeout=120)
+
+    claim = await services.store.get_claim(claim.id)
+    held = [j for j in await services.store.list_jobs(claim.id) if j.state == JobState.AWAITING_APPROVAL]
+    assert held, "expected a repair to be waiting on a decision"
+    return claim, held[0]
+
+
 class TestSafeRepairPolicy:
     """Under safe repair, a bounded parameter change needs a decision."""
 
@@ -150,6 +172,35 @@ class TestSafeRepairPolicy:
 
         event = next(e for j in held for e in j.health.events if e.requires_approval)
         assert "requires approval" in event.action_taken
+
+        # The repair must be staged, so approving it re-runs with the change
+        # rather than repeating the identical failure.
+        job = held[0]
+        pending = job.params["_pending_recovery"]
+        assert pending["action"] == "adjust_learning_rate_within_bounds"
+        assert job.params["_recovery_overrides"]["learning_rate"] < 2.4
+
+    async def test_approving_the_staged_repair_actually_applies_it(self, services):
+        claim, job = await _run_to_held_repair(services)
+        await services.orchestrator.approve_repair(claim, job)
+        await services.bus.drain(timeout=120)
+
+        repaired = await services.store.get_job(claim.id, job.id)
+        assert repaired.state == JobState.COMPLETED
+        assert repaired.attempts == 2, "the approved repair should let it succeed on the retry"
+        assert any(r.startswith("recovery:adjust_learning_rate") for r in repaired.recovery_actions)
+        assert "_pending_recovery" not in repaired.params
+
+    async def test_declining_the_staged_repair_leaves_the_run_failed(self, services):
+        claim, job = await _run_to_held_repair(services)
+        await services.orchestrator.decline_repair(claim, job)
+
+        declined = await services.store.get_job(claim.id, job.id)
+        assert declined.state == JobState.FAILED
+        assert declined.attempts == 1, "declining must not re-run anything"
+        # The staged parameter change must not survive a decline.
+        assert "_recovery_overrides" not in declined.params
+        assert "_pending_recovery" not in declined.params
 
 
 class TestFullWorkflow:

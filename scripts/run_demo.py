@@ -53,7 +53,7 @@ async def drive(autonomy: AutonomyMode, auto_approve: bool, quiet: bool) -> dict
                     say("stopping: pass --approve to continue past the approval gate")
                     break
                 for job in held:
-                    await services.orchestrator.queue_job(current, job)
+                    await services.orchestrator.approve_repair(current, job)
                 current.state = ClaimState.EXECUTING
                 await services.store.save_claim(current)
                 say("approved\n")
