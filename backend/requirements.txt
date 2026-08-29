@@ -1,0 +1,21 @@
+# --- core service ---------------------------------------------------------
+fastapi==0.141.1
+uvicorn[standard]==0.41.0
+pydantic==2.13.5
+pydantic-settings==2.13.0
+httpx==0.28.1
+python-multipart==0.0.20
+
+# --- experiments ----------------------------------------------------------
+numpy==2.3.5
+scikit-learn==1.7.2
+
+# --- Gemini + agent orchestration ----------------------------------------
+google-adk==2.8.0
+google-genai==2.20.0
+
+# --- Google Cloud ---------------------------------------------------------
+google-cloud-firestore==2.22.0
+google-cloud-pubsub==2.32.0
+google-cloud-storage==3.4.1
+google-cloud-logging==3.13.0

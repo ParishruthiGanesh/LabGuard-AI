@@ -1,0 +1,15 @@
+line-length = 120
+target-version = "py311"
+exclude = [".venv", "artifacts"]
+
+[lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "RUF"]
+ignore = [
+    "E501",    # long lines are handled by the formatter
+    "B008",    # FastAPI dependencies are call-in-default by design
+    "RUF012",  # mutable class attributes are fine on pydantic models
+    "B027",    # optional lifecycle hooks on ports are deliberately concrete
+]
+
+[lint.per-file-ignores]
+"tests/*" = ["S101"]
