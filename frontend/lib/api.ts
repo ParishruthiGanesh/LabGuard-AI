@@ -3,6 +3,10 @@ import type { AppConfig, Claim, ClaimSnapshot } from "./types";
 /** All backend calls go through the Next.js rewrite, so they stay same-origin. */
 const BASE = "/api/backend";
 
+const UNREACHABLE =
+  "The LabGuard API is not responding. Start it in a second terminal with `make api`, " +
+  "wait for \"Application startup complete\", then try again.";
+
 class ApiError extends Error {
   constructor(
     message: string,
@@ -22,12 +26,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       cache: "no-store",
     });
   } catch {
-    throw new ApiError("Could not reach the LabGuard API. Is the backend running?", 0);
+    throw new ApiError(UNREACHABLE, 0);
   }
   if (!response.ok) {
     let detail = `${response.status} ${response.statusText}`;
+    const raw = await response.text();
     try {
-      const body = (await response.json()) as { detail?: unknown };
+      const body = JSON.parse(raw) as { detail?: unknown };
       if (typeof body.detail === "string") detail = body.detail;
       else if (Array.isArray(body.detail)) {
         detail = body.detail
@@ -35,7 +40,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
           .join("; ");
       }
     } catch {
-      /* keep the status line */
+      // The API always answers JSON. A non-JSON 5xx here is the Next.js
+      // rewrite failing to reach the backend at all, which is by far the
+      // most common setup problem, so name it rather than showing "500".
+      if (response.status >= 500) {
+        throw new ApiError(UNREACHABLE, response.status);
+      }
     }
     throw new ApiError(detail, response.status);
   }
