@@ -550,18 +550,43 @@ async def inspect_training_curve(ctx: ExecutionContext, params: dict[str, Any]) 
                 strength=0.75,
             )
         )
+    # The divergence between the best-on-test and best-on-validation epoch only
+    # damages the claim if the submitted result actually selected on test.
+    # Accusing a researcher who checkpointed honestly would be a false finding.
+    selected_on_test = [r.model_name for r in ctx.claim.context.existing_results if r.checkpoint_selected_on == "test"]
     if res.best_test_epoch != res.best_val_epoch:
-        evidence.append(
-            _evidence(
-                ctx,
-                f"The epoch that looks best on the test split (epoch {res.best_test_epoch}) is not the epoch "
-                f"validation would have chosen (epoch {res.best_val_epoch}), so selecting on test buys a gain "
-                f"that honest checkpointing does not.",
-                EvidenceStance.CONTRADICTS,
-                {"best_test_epoch": res.best_test_epoch, "best_val_epoch": res.best_val_epoch},
-                strength=0.7,
+        if selected_on_test:
+            evidence.append(
+                _evidence(
+                    ctx,
+                    f"The epoch that looks best on the test split (epoch {res.best_test_epoch}) is not the epoch "
+                    f"validation would have chosen (epoch {res.best_val_epoch}), so selecting on test - which "
+                    f"{', '.join(selected_on_test)} did - buys a gain that honest checkpointing does not.",
+                    EvidenceStance.CONTRADICTS,
+                    {
+                        "best_test_epoch": res.best_test_epoch,
+                        "best_val_epoch": res.best_val_epoch,
+                        "models_selected_on_test": selected_on_test,
+                    },
+                    strength=0.7,
+                )
             )
-        )
+        else:
+            evidence.append(
+                _evidence(
+                    ctx,
+                    f"Checkpoints were selected on validation, so the test-selection confound does not apply. It "
+                    f"would have mattered: the best-on-test epoch ({res.best_test_epoch}) differs from the one "
+                    f"validation chose ({res.best_val_epoch}).",
+                    EvidenceStance.SUPPORTS,
+                    {
+                        "best_test_epoch": res.best_test_epoch,
+                        "best_val_epoch": res.best_val_epoch,
+                        "checkpoint_selection": "validation",
+                    },
+                    strength=0.65,
+                )
+            )
     if not evidence:
         evidence.append(
             _evidence(

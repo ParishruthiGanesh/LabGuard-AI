@@ -586,8 +586,14 @@ def rule_based_status(
     if len(contradicted) >= 2:
         reasons.append("Two or more subclaims are contradicted by direct measurement.")
         return VerdictStatus.NOT_SUFFICIENTLY_SUPPORTED, reasons
-    if contradicted and claimed_unstable:
-        reasons.append("The claimed metric is not separated from zero and a subclaim is contradicted.")
+    if contradicted:
+        # One failed condition against an otherwise sound comparison: the claim
+        # survives as stated but not everywhere, which is what fragile means.
+        reasons.append(
+            f"The claimed metric holds, but one subclaim is contradicted: {contradicted[0].statement}"
+            if not claimed_unstable
+            else "The claimed metric is not separated from zero and a subclaim is contradicted."
+        )
         return VerdictStatus.FRAGILE, reasons
     if not contradicted and not inconclusive and not claimed_unstable:
         reasons.append("Every subclaim is supported and the claimed metric is separated from zero.")
