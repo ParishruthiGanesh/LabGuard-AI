@@ -71,9 +71,34 @@ for role in roles/datastore.user roles/pubsub.publisher roles/storage.objectAdmi
     --role="${role}" --condition=None >/dev/null
 done
 
+echo "==> IAM: let Cloud Build deploy Cloud Run and act as the runtime accounts"
+PROJECT_NUMBER="$(gcloud projects describe "${PROJECT}" --format='value(projectNumber)')"
+# Depending on when the project was created, builds run as either the legacy
+# Cloud Build account or the default compute account. Grant both; the one that
+# does not exist is skipped.
+BUILD_SAS=(
+  "${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com"
+  "${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+)
+for build_sa in "${BUILD_SAS[@]}"; do
+  gcloud iam service-accounts describe "${build_sa}" >/dev/null 2>&1 || continue
+  for role in roles/run.admin roles/artifactregistry.writer roles/logging.logWriter; do
+    gcloud projects add-iam-policy-binding "${PROJECT}" \
+      --member="serviceAccount:${build_sa}" --role="${role}" --condition=None >/dev/null
+  done
+  # `gcloud run deploy --service-account=X` needs actAs on X.
+  for runtime_sa in labguard-api labguard-worker; do
+    gcloud iam service-accounts add-iam-policy-binding \
+      "${runtime_sa}@${PROJECT}.iam.gserviceaccount.com" \
+      --member="serviceAccount:${build_sa}" \
+      --role=roles/iam.serviceAccountUser >/dev/null
+  done
+done
+
 echo "==> Building and deploying (Cloud Build)"
+TAG="$(git rev-parse --short HEAD 2>/dev/null || echo manual)"
 gcloud builds submit --config deploy/cloudbuild.yaml \
-  --substitutions="_REGION=${REGION},_REPO=${REPO},_BUCKET=${BUCKET},SHORT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo manual)"
+  --substitutions="_REGION=${REGION},_REPO=${REPO},_BUCKET=${BUCKET},_TAG=${TAG}"
 
 WORKER_URL="$(gcloud run services describe labguard-worker --region="${REGION}" --format='value(status.url)')"
 API_URL="$(gcloud run services describe labguard-api --region="${REGION}" --format='value(status.url)')"
