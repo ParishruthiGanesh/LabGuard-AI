@@ -40,7 +40,9 @@ make api                   # FastAPI on http://127.0.0.1:8080
 make dashboard             # Next.js on http://localhost:3000
 ```
 
-Open <http://localhost:3000> and click **Start verification**.
+Open <http://localhost:3000>. The launcher has two modes: **Bundled scenario**
+(click *Start verification*) and **Your own claim**, where you describe a
+comparison of your own and LabGuard verifies that instead.
 
 Requirements: Python 3.11+, Node 20+.
 
@@ -72,6 +74,20 @@ class, while minority-class recall drops from 0.45 to 0.34.
 Along the way it detects overfitting in the reported run, recovers a submitted
 variant that genuinely diverges to NaN, and stops a corrupted-checkpoint job
 after three identical failures rather than retrying forever.
+
+## Verifying your own claim
+
+Switch the launcher to **Your own claim**, or `POST /api/claims` directly
+(see [`docs/API.md`](docs/API.md)). You supply the claim, the dataset shape,
+the two configurations being compared, and the result you already have.
+
+One thing to be clear about, and the form says so too: LabGuard rebuilds a
+synthetic benchmark with the shape you describe and trains those two
+configurations itself. It does not read your real dataset or attach to your
+training code. What it verifies is the *reasoning* — whether a difference of
+the size you report would survive equal budgets, more seeds, class-balanced
+metrics and honest checkpointing. The loophole detection, the recursion, the
+health monitoring and the scoring all run on your numbers.
 
 ### These weaknesses are real
 

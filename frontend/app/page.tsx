@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ClaimForm, type CustomClaim } from "@/components/ClaimForm";
 import { AppHeader } from "@/components/Header";
 import { Badge, Button, Card, ErrorState, Skeleton } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -38,6 +39,7 @@ export default function LauncherPage() {
   const [budget, setBudget] = useState(40);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [source, setSource] = useState<"bundled" | "custom">("bundled");
 
   const load = async () => {
     try {
@@ -54,13 +56,12 @@ export default function LauncherPage() {
     void load();
   }, []);
 
-  async function start() {
+  async function submit(body: Record<string, unknown>) {
     setStarting(true);
     setError(null);
     try {
       const claim = await api.createClaim({
-        use_demo_scenario: true,
-        autonomy_mode: autonomy,
+        ...body,
         budget: { total_units: budget, consumed_units: 0, approval_threshold_units: 6 },
       });
       router.push(`/claims/${claim.id}`);
@@ -69,6 +70,9 @@ export default function LauncherPage() {
       setStarting(false);
     }
   }
+
+  const start = () => submit({ use_demo_scenario: true, autonomy_mode: autonomy });
+  const startCustom = (claim: CustomClaim) => submit({ ...claim });
 
   return (
     <div className="min-h-screen">
@@ -91,7 +95,30 @@ export default function LauncherPage() {
           </div>
         )}
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+        <div className="mt-8 inline-flex rounded-lg border border-ink-200 bg-white p-1">
+          {(
+            [
+              ["bundled", "Bundled scenario"],
+              ["custom", "Your own claim"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setSource(key)}
+              className={`rounded-md px-3.5 py-1.5 text-sm font-medium transition ${
+                source === key ? "bg-ink-900 text-white" : "text-ink-600 hover:text-ink-900"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+          {source === "custom" ? (
+            <ClaimForm autonomy={autonomy} onSubmit={startCustom} submitting={starting} />
+          ) : (
           <Card
             title="Run the bundled scenario"
             subtitle="A synthetic violence-detection benchmark with real, reproducible weaknesses built into it."
@@ -169,8 +196,10 @@ export default function LauncherPage() {
               </div>
             )}
           </Card>
+          )}
 
           <div className="space-y-6">
+            {source === "bundled" ? (
             <Card title="What is deliberately wrong with it" subtitle="Each of these is a genuine property of the data and configuration, not a scripted output.">
               <ul className="space-y-2 text-sm leading-relaxed text-ink-700">
                 {[
@@ -189,6 +218,27 @@ export default function LauncherPage() {
                 ))}
               </ul>
             </Card>
+            ) : (
+              <Card title="What LabGuard will do with it" subtitle="The same seven agents, on your numbers.">
+                <ol className="space-y-2 text-sm leading-relaxed text-ink-700">
+                  {[
+                    "Break your claim into subclaims that can each be measured.",
+                    "Read your configuration for loopholes: imbalance, unequal budgets, checkpoint selection, single seeds.",
+                    "Plan the cheapest experiments that could settle them, and ask before anything expensive.",
+                    "Retrain both arms across seeds under an equal budget and compare paired deltas.",
+                    "Watch each run for overfitting and divergence, repairing what your autonomy policy allows.",
+                    "Issue a verdict with a reliability score, every check shown.",
+                  ].map((step, i) => (
+                    <li key={step} className="flex gap-2.5">
+                      <span className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full bg-accent-100 text-[10px] font-semibold text-accent-700">
+                        {i + 1}
+                      </span>
+                      {step}
+                    </li>
+                  ))}
+                </ol>
+              </Card>
+            )}
 
             {config && (
               <Card
