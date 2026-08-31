@@ -74,22 +74,22 @@ Seven reliability dimensions, each a weighted pass rate
 over named checks. No score here is written by a model.
 
 16
-00:01:50,000 --> 00:01:58,000
+00:01:50,000 --> 00:01:55,500
 The dataset and both configurations are recorded,
 so the whole verification can be reproduced.
 
 17
-00:01:58,000 --> 00:02:04,000
+00:01:55,500 --> 00:02:02,000
 The Claim map. The Scientific Skeptic has taken over,
 turning one sentence into testable subclaims.
 
 18
-00:02:04,000 --> 00:02:10,000
+00:02:02,000 --> 00:02:09,500
 Then the Experiment Planner decides
 what to actually run.
 
 19
-00:02:10,000 --> 00:02:20,000
+00:02:09,500 --> 00:02:19,000
 Round one: four diagnostics for 7.4 compute units, chosen to target
 configuration discrepancies, train/test overlap and class imbalance.
 
