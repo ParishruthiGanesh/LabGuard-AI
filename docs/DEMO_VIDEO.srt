@@ -1,0 +1,111 @@
+1
+00:00:00,000 --> 00:00:06,000
+Researchers lose weeks to failed experiments. Worse, they sometimes publish conclusions drawn from experiments that succeeded technically and failed scientifically.
+
+2
+00:00:06,000 --> 00:00:12,000
+This is LabGuard AI. It challenges the claim, protects the run, and only stops when the evidence can be trusted.
+
+3
+00:00:12,000 --> 00:00:20,000
+Here is the claim under test: Model B performs better than Model A. Reported on one seed. Model B trained ninety epochs against Model A's twenty-five. Both checkpoints picked on the test split.
+
+4
+00:00:20,000 --> 00:00:26,000
+Every one of those is a real property of the configuration. Nothing here is scripted.
+
+5
+00:00:26,000 --> 00:00:32,000
+I start the verification. The Claim Analyst turns one sentence into eight measurable subclaims.
+
+6
+00:00:32,000 --> 00:00:41,000
+The Scientific Skeptic reads the configuration and finds eleven loopholes. An eight percent positive rate makes accuracy nearly uninformative. The arms had unequal training budgets. Checkpoints were chosen on test.
+
+7
+00:00:41,000 --> 00:00:48,000
+It also writes down the rival explanations it has to rule out, and which experiment would settle each one.
+
+8
+00:00:48,000 --> 00:00:56,000
+The planner picks eight actions for twelve point six compute units, cheapest decisive checks first. Every action comes from a typed registry with validated parameters.
+
+9
+00:00:56,000 --> 00:01:04,000
+The model can name an action. It can never issue a command. There is no path from model output to a shell, an eval, or a file write.
+
+10
+00:01:04,000 --> 00:01:12,000
+The five-seed retrain costs eight units against a six-unit threshold, so it stops for me. Nothing has run yet. Every job is holding at awaiting approval.
+
+11
+00:01:12,000 --> 00:01:16,000
+I approve. The jobs go out over Pub/Sub to a separate Cloud Run worker.
+
+12
+00:01:16,000 --> 00:01:24,000
+These curves are streaming from real training runs, epoch by epoch. RunMedic is watching each one.
+
+13
+00:01:24,000 --> 00:01:32,000
+First incident. Overfitting in the reported run: validation loss climbing away from its best while training loss keeps falling.
+
+14
+00:01:32,000 --> 00:01:40,000
+This one is a diagnostic replay of the reported run, so RunMedic records it rather than interrupting the measurement, and applies early stopping to the verification runs instead.
+
+15
+00:01:40,000 --> 00:01:50,000
+Second incident. A submitted variant genuinely diverges to NaN. RunMedic caught it, scaled the learning rate down inside the bounds declared on the action, re-queued it, and it completed. Two attempts, fully audited.
+
+16
+00:01:50,000 --> 00:02:00,000
+Third incident. The reported checkpoint fails its integrity check. LabGuard repaired and retried, got the identical failure signature, and stopped at three attempts rather than burning budget on a failure that was not changing.
+
+17
+00:02:00,000 --> 00:02:10,000
+The Evidence Auditor then found the threshold subclaim still untested, planned a second round on its own, and ran it. That is the recursion: it keeps going until another experiment could not change a conclusion.
+
+18
+00:02:10,000 --> 00:02:14,000
+Here is the verdict. Not sufficiently supported.
+
+19
+00:02:14,000 --> 00:02:24,000
+Across five seeds under an equalised budget, the accuracy difference averages plus zero point zero zero six, with a ninety-five percent interval that contains zero.
+
+20
+00:02:24,000 --> 00:02:32,000
+Macro F1 is negative. Model B loses on all five seeds. So does balanced accuracy.
+
+21
+00:02:32,000 --> 00:02:42,000
+The class-wise breakdown says why: the gain is entirely in the majority class, and minority recall drops from zero point four five to zero point three four. For a violence detector, that is the opposite of an improvement.
+
+22
+00:02:42,000 --> 00:02:52,000
+Every score is a weighted pass rate over named checks, each showing its arithmetic. Data integrity is one hundred: there genuinely is no leakage, and the detector was proven on a positive control.
+
+23
+00:02:52,000 --> 00:03:00,000
+Statistical stability is zero, and you can see exactly which three checks failed and the numbers behind them.
+
+24
+00:03:00,000 --> 00:03:10,000
+Gemini writes the narrative. It is never allowed to produce a number. If its proposed verdict disagrees with the measured one, the measurement wins and the disagreement is written to the ledger.
+
+25
+00:03:10,000 --> 00:03:18,000
+The evidence ledger is the whole account: every agent, every action, the reason, the input, the result and the decision.
+
+26
+00:03:18,000 --> 00:03:26,000
+And the same engine runs on your own claim. A well-controlled ablation comes back fragile at confidence seventy-two. A fair but noisy comparison comes back not sufficiently supported at fifty.
+
+27
+00:03:26,000 --> 00:03:34,000
+Seven agents on Gemini 3.5 Flash through Google ADK, sharing state in Firestore, with Pub/Sub and three Cloud Run services.
+
+28
+00:03:34,000 --> 00:03:44,000
+Challenge the claim. Protect the run. Trust the result. LabGuard does not stop when the code runs. It stops when the evidence can be trusted.
