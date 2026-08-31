@@ -104,6 +104,14 @@ WORKER_URL="$(gcloud run services describe labguard-worker --region="${REGION}" 
 API_URL="$(gcloud run services describe labguard-api --region="${REGION}" --format='value(status.url)')"
 DASH_URL="$(gcloud run services describe labguard-dashboard --region="${REGION}" --format='value(status.url)')"
 
+echo "==> Pointing the dashboard at the API"
+# Cloud Build also sets this, but doing it here from a known-good value means a
+# failed shell expansion inside the build cannot leave the dashboard proxying
+# to an empty URL (which 404s every API call).
+gcloud run services update labguard-dashboard \
+  --region="${REGION}" \
+  --update-env-vars="LABGUARD_API_URL=${API_URL}" >/dev/null
+
 echo "==> Pub/Sub push subscription -> worker"
 # The push service account needs permission to invoke the private worker.
 gcloud run services add-iam-policy-binding labguard-worker \

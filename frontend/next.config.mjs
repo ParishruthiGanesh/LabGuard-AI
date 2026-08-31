@@ -17,7 +17,13 @@ const config = {
   // browser only ever sees same-origin requests and no CORS setup is needed
   // for the common deployment.
   async rewrites() {
-    const backend = process.env.LABGUARD_API_URL ?? "http://127.0.0.1:8080";
+    // `||`, not `??`: an env var that is present but empty must fall back too.
+    // An empty value makes the destination relative, so the dashboard proxies
+    // to itself and every API call 404s.
+    const backend = process.env.LABGUARD_API_URL || "http://127.0.0.1:8080";
+    // Logged once at startup so a misconfigured deployment is diagnosable from
+    // the service logs rather than from a bare 404 in the browser.
+    console.log(`[labguard] proxying /api/backend/* to ${backend}`);
     return [
       { source: "/api/backend/:path*", destination: `${backend}/api/:path*` },
       { source: "/api/health", destination: `${backend}/health` },
